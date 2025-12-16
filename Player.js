@@ -13,6 +13,11 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.currentHealth = 100;
         this.isDead = false;
 
+        // Level System
+        this.level = 1;
+        this.experience = 0;
+        this.experienceToNextLevel = 1000;
+
         // Movement State
         this.path = null;
         this.isDirectMoving = false;
@@ -438,6 +443,56 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             this.setTint(0x555555);
             this.body.setVelocity(0);
             this.scene.gameOver();
+        }
+    }
+
+    gainExperience(amount) {
+        this.experience += amount;
+
+        // Check for level up
+        while (this.experience >= this.experienceToNextLevel) {
+            this.experience -= this.experienceToNextLevel;
+            this.levelUp();
+        }
+
+        // Update UI
+        if (this.scene.uiManager) {
+            this.scene.uiManager.updateExperience();
+        }
+    }
+
+    levelUp() {
+        this.level++;
+
+        // Increase max health by 20
+        this.maxHealth += 20;
+
+        // Heal 20 HP
+        this.currentHealth = Math.min(this.currentHealth + 20, this.maxHealth);
+
+        // Visual feedback
+        const levelUpText = this.scene.add.text(this.x, this.y - 50, `LEVEL UP! ${this.level}`, {
+            fontSize: '24px',
+            color: '#ffff00',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.scene.tweens.add({
+            targets: levelUpText,
+            y: this.y - 100,
+            alpha: 0,
+            duration: 2000,
+            ease: 'Power2',
+            onComplete: () => levelUpText.destroy()
+        });
+
+        // Update UI
+        if (this.scene.uiManager) {
+            this.scene.uiManager.updateHealth();
+            this.scene.uiManager.updateLevel();
+            this.scene.uiManager.updateExperience();
         }
     }
 

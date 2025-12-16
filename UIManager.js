@@ -7,6 +7,9 @@ class UIManager {
         this.healthBarBg = null;
         this.healthBar = null;
         this.healthText = null;
+        this.expBarBg = null;
+        this.expBar = null;
+        this.levelText = null;
 
         this.skillIcons = {};
         this.overlays = {};
@@ -27,6 +30,18 @@ class UIManager {
         this.healthText = this.scene.add.text(700, 30, '100/100', {
             fontSize: '14px', color: '#ffffff', fontStyle: 'bold'
         }).setOrigin(0.5).setScrollFactor(0).setDepth(202); // Above fog
+
+        // Experience Bar (below health bar)
+        this.expBarBg = this.scene.add.rectangle(700, 50, 104, 8, 0x000000);
+        this.expBarBg.setScrollFactor(0).setDepth(200);
+
+        this.expBar = this.scene.add.rectangle(700, 50, 100, 6, 0xffff00);
+        this.expBar.setScrollFactor(0).setDepth(201);
+
+        // Level Text (next to health bar)
+        this.levelText = this.scene.add.text(620, 30, 'Lv.1', {
+            fontSize: '16px', color: '#ffff00', fontStyle: 'bold'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(202);
 
         // Skills
         const baseY = 530;
@@ -68,6 +83,21 @@ class UIManager {
         this.healthBar.width = 100 * ratio;
         this.healthBar.fillColor = ratio < 0.3 ? 0xff0000 : 0x00ff00;
         this.healthText.setText(`${Math.ceil(current)}/${max}`);
+    }
+
+    updateExperience() {
+        if (!this.player) return;
+
+        const current = this.player.experience;
+        const max = this.player.experienceToNextLevel;
+        const ratio = Math.max(0, Math.min(1, current / max));
+
+        this.expBar.width = 100 * ratio;
+    }
+
+    updateLevel() {
+        if (!this.player) return;
+        this.levelText.setText(`Lv.${this.player.level}`);
     }
 
     updateCooldowns() {

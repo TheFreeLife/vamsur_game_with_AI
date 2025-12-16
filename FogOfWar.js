@@ -84,8 +84,8 @@ class FogOfWar {
                             this.fogGraphics.fillStyle(0x000000, alpha);
                             this.fogGraphics.fillRect(worldX, worldY, renderSize, renderSize);
                         } else {
-                            // Unexplored - heavy fog
-                            this.fogGraphics.fillStyle(0x000000, 0.9);
+                            // Unexplored - complete darkness (nothing visible)
+                            this.fogGraphics.fillStyle(0x000000, 1.0);
                             this.fogGraphics.fillRect(worldX, worldY, renderSize, renderSize);
                         }
                     }

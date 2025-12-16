@@ -50,6 +50,14 @@ class MainScene extends Phaser.Scene {
         graphics.fillRect(0, 0, 32, 32);
         graphics.generateTexture('monsterTexture', 32, 32);
 
+        // Werewolf (gray wolf color)
+        graphics.clear();
+        graphics.fillStyle(0x808080, 1.0);
+        graphics.fillRect(0, 0, 32, 32);
+        graphics.lineStyle(2, 0x606060);
+        graphics.strokeRect(0, 0, 32, 32);
+        graphics.generateTexture('werewolfTexture', 32, 32);
+
         // Wall
         graphics.clear();
         graphics.fillStyle(0x555555, 1.0);
@@ -201,18 +209,38 @@ class MainScene extends Phaser.Scene {
         if (monster.lastAttackTime && now - monster.lastAttackTime < attackCooldown) return;
 
         monster.lastAttackTime = now;
-        player.takeDamage(10);
+
+        // Use monster's damage property if available (for Werewolf), otherwise default to 10
+        const damage = monster.damage !== undefined ? monster.damage : 10;
+        player.takeDamage(damage);
 
         // Monster Attack Animation
+        const targetScale = monster.isRaging ? 1.5 : 1.3;
+        const baseScale = monster.isRaging ? 1.2 : 1.0;
+
         this.tweens.add({
             targets: monster,
-            scaleX: 1.3,
-            scaleY: 1.3,
+            scaleX: targetScale,
+            scaleY: targetScale,
             duration: 100,
             yoyo: true,
             ease: 'Sine.easeInOut',
-            onStart: () => monster.setTint(0xffaa00),
-            onComplete: () => { if (monster.active) monster.clearTint(); }
+            onStart: () => {
+                // Don't override werewolf rage tint
+                if (!monster.isRaging) monster.setTint(0xffaa00);
+            },
+            onComplete: () => {
+                if (monster.active) {
+                    // Restore werewolf rage tint and scale if raging
+                    if (monster.isRaging) {
+                        monster.setTint(0xff3333);
+                        monster.setScale(baseScale);
+                    } else {
+                        monster.clearTint();
+                        monster.setScale(baseScale);
+                    }
+                }
+            }
         });
     }
 

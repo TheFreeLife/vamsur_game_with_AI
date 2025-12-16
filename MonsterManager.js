@@ -9,6 +9,8 @@ class Monster extends Phaser.Physics.Arcade.Sprite {
         this.maxHealth = 30;
         this.health = 30;
         this.speed = 100;
+        this.damage = 10; // Base damage
+        this.expReward = 50; // Experience reward on death
         this.path = null;
         this.hpBar = scene.add.graphics();
         this.lastAttackTime = 0;
@@ -72,7 +74,7 @@ class Monster extends Phaser.Physics.Arcade.Sprite {
         if (now - this.lastAttackTime < 1000) return;
 
         this.lastAttackTime = now;
-        crate.takeDamage(10); // Monster Damage
+        crate.takeDamage(this.damage); // Use damage property
 
         // Attack Animation
         this.scene.tweens.add({
@@ -98,6 +100,11 @@ class Monster extends Phaser.Physics.Arcade.Sprite {
     }
 
     die() {
+        // Grant experience to player
+        if (this.scene.player && !this.scene.player.isDead) {
+            this.scene.player.gainExperience(this.expReward);
+        }
+
         if (this.hpBar) this.hpBar.destroy();
         this.destroy();
     }
@@ -110,6 +117,169 @@ class Monster extends Phaser.Physics.Arcade.Sprite {
         const ratio = Math.max(0, this.health / this.maxHealth);
         this.hpBar.fillStyle(0xff0000);
         this.hpBar.fillRect(0, 0, width * ratio, height);
+    }
+}
+
+// Werewolf Monster - Special monster with rage mechanic
+class Werewolf extends Monster {
+    constructor(scene, x, y) {
+        super(scene, x, y);
+
+        // Override texture to differentiate
+        this.setTexture('werewolfTexture');
+
+        // Werewolf specific properties
+        this.baseSpeed = 100;
+        this.baseDamage = 7;
+        this.speed = this.baseSpeed;
+        this.damage = this.baseDamage;
+        this.expReward = 100; // Werewolves give more XP
+
+        // Rage mechanic
+        this.isRaging = false;
+        this.rageTimer = null;
+        this.rageEndTimer = null;
+        this.rageCooldown = 8000; // 8 seconds
+        this.rageDuration = 5000; // 5 seconds
+
+        // Visual effects for rage
+        this.rageGlow = null;
+        this.rageTween = null;
+
+        // Start rage cycle
+        this.startRageCycle();
+    }
+
+    startRageCycle() {
+        // Rage every 8 seconds - store timer reference
+        this.rageTimer = this.scene.time.addEvent({
+            delay: this.rageCooldown,
+            callback: this.enterRage,
+            callbackScope: this,
+            loop: true
+        });
+    }
+
+    enterRage() {
+        if (!this.active) return;
+
+        this.isRaging = true;
+        this.speed = this.baseSpeed * 1.5; // 150
+        this.damage = this.baseDamage * 2; // 14
+
+        // Visual feedback - red tint and scale increase
+        this.setTint(0xff3333);
+        this.setScale(1.2);
+
+        // Add pulsing glow effect
+        this.rageGlow = this.scene.add.graphics();
+        this.rageGlow.setDepth(this.depth - 1);
+
+        // Pulsing animation
+        this.rageTween = this.scene.tweens.add({
+            targets: this,
+            alpha: 0.7,
+            duration: 300,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        // End rage after duration - store timer reference
+        this.rageEndTimer = this.scene.time.delayedCall(this.rageDuration, () => {
+            this.exitRage();
+        });
+    }
+
+    exitRage() {
+        if (!this.active) return;
+
+        this.isRaging = false;
+        this.speed = this.baseSpeed;
+        this.damage = this.baseDamage;
+
+        // Clear visual effects
+        this.clearTint();
+        this.setScale(1.0);
+        this.setAlpha(1.0);
+
+        // Remove glow
+        if (this.rageGlow) {
+            this.rageGlow.destroy();
+            this.rageGlow = null;
+        }
+
+        // Stop pulsing animation
+        if (this.rageTween) {
+            this.rageTween.stop();
+            this.rageTween = null;
+        }
+    }
+
+    update(time, delta) {
+        super.update(time, delta);
+
+        // Update rage glow position
+        if (this.isRaging && this.rageGlow && this.active) {
+            this.rageGlow.clear();
+            this.rageGlow.lineStyle(3, 0xff0000, 0.6);
+            this.rageGlow.strokeCircle(this.x, this.y, 20);
+            this.rageGlow.lineStyle(2, 0xff3333, 0.4);
+            this.rageGlow.strokeCircle(this.x, this.y, 25);
+        }
+    }
+
+    attackCrate(crate) {
+        const now = this.scene.time.now;
+        if (now - this.lastAttackTime < 1000) return;
+
+        this.lastAttackTime = now;
+        crate.takeDamage(this.damage); // Use current damage (base or raged)
+
+        // Attack Animation - larger scale when raging
+        this.scene.tweens.add({
+            targets: this,
+            scaleX: this.isRaging ? 1.5 : 1.3,
+            scaleY: this.isRaging ? 1.5 : 1.3,
+            duration: 100,
+            yoyo: true,
+            onStart: () => {
+                if (!this.isRaging) this.setTint(0xffaa00);
+            },
+            onComplete: () => {
+                if (this.active) {
+                    if (this.isRaging) {
+                        this.setTint(0xff3333); // Restore rage tint
+                        this.setScale(1.2); // Restore rage scale
+                    } else {
+                        this.clearTint();
+                        this.setScale(1.0);
+                    }
+                }
+            }
+        });
+    }
+
+    die() {
+        // Clear werewolf-specific timers only
+        if (this.rageTimer) {
+            this.rageTimer.remove();
+            this.rageTimer = null;
+        }
+        if (this.rageEndTimer) {
+            this.rageEndTimer.remove();
+            this.rageEndTimer = null;
+        }
+        if (this.rageGlow) {
+            this.rageGlow.destroy();
+            this.rageGlow = null;
+        }
+        if (this.rageTween) {
+            this.rageTween.stop();
+            this.rageTween = null;
+        }
+
+        super.die();
     }
 }
 
@@ -161,10 +331,22 @@ class MonsterManager {
         }
 
         if (valid) {
-            const monster = this.monsters.create(x, y); // Uses classType: Monster
-            // Physics body configuration is done in Constructor or here
-            // Note: create() calls constructor. 
-            // We need to ensure body size is set if not in constructor
+            // 30% chance to spawn werewolf
+            const spawnWerewolf = Math.random() < 0.3;
+
+            let monster;
+            if (spawnWerewolf) {
+                // Create werewolf manually
+                monster = new Werewolf(this.scene, x, y);
+                this.scene.add.existing(monster);
+                this.scene.physics.add.existing(monster);
+                this.monsters.add(monster);
+            } else {
+                // Create regular monster using group
+                monster = this.monsters.create(x, y);
+            }
+
+            // Physics body configuration
             monster.body.setSize(24, 24).setOffset(4, 4);
         }
     }

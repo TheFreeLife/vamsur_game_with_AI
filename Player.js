@@ -26,6 +26,13 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             R: { cooldown: 20000, duration: 5000, lastFired: -20000, active: false, damageTimer: 0 }
         };
 
+        // Basic Attack State
+        this.attackSpeed = 1.0; // Attacks per second
+        this.attackRange = 240; // Increased range (1.5x)
+        this.lastAttackTime = -1000;
+        this.isAttackAiming = false;
+        this.attackIndicator = this.createRangeIndicator(0xff0000, this.attackRange); // Red Color for Attack
+
         // Skill Indicators
         this.qIndicator = this.createRangeIndicator(0x00ffff, 300); // Skyblue
         this.wIndicator = this.createRadiusIndicator(0xff8800, 300, 64); // Orange
@@ -41,7 +48,8 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             Q: Phaser.Input.Keyboard.KeyCodes.Q,
             W: Phaser.Input.Keyboard.KeyCodes.W,
             E: Phaser.Input.Keyboard.KeyCodes.E,
-            R: Phaser.Input.Keyboard.KeyCodes.R
+            R: Phaser.Input.Keyboard.KeyCodes.R,
+            A: Phaser.Input.Keyboard.KeyCodes.A
         });
 
         // Setup Mouse Input (Scene level, but handled here)
@@ -228,9 +236,20 @@ class Player extends Phaser.Physics.Arcade.Sprite {
                 this.eIndicator.setVisible(true);
             }
         }
+
         // R (Immediate Cast)
         if (Phaser.Input.Keyboard.JustDown(this.keys.R) && time - this.skills.R.lastFired >= this.skills.R.cooldown) {
             this.fireR();
+        }
+
+        // A (Attack Move)
+        if (Phaser.Input.Keyboard.JustDown(this.keys.A)) {
+            const wasAiming = this.isAttackAiming;
+            this.resetAiming();
+            if (!wasAiming) {
+                this.isAttackAiming = true;
+                this.attackIndicator.setVisible(true);
+            }
         }
     }
 
@@ -238,15 +257,18 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.skills.Q.aiming = false;
         this.skills.W.aiming = false;
         this.skills.E.aiming = false;
+        this.isAttackAiming = false;
         this.qIndicator.setVisible(false);
         this.wIndicator.setVisible(false);
         this.eIndicator.setVisible(false);
+        this.attackIndicator.setVisible(false);
     }
 
     handleClick(pointer) {
         if (this.skills.Q.aiming) this.fireQ(pointer);
         else if (this.skills.W.aiming) this.fireW(pointer);
         else if (this.skills.E.aiming) this.fireE(pointer);
+        else if (this.isAttackAiming) this.fireBasicAttack(pointer);
     }
 
     drawIndicators() {
@@ -285,8 +307,16 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             g.strokeCircle(this.x, this.y, g.range);
             g.fillCircle(this.x, this.y, g.range);
 
+            g.fillCircle(this.x, this.y, g.range);
+
             g.lineStyle(2, valid ? 0x00ff00 : 0xff0000, 1.0);
             g.strokeCircle(worldPoint.x, worldPoint.y, 10);
+        } else if (this.isAttackAiming) {
+            const g = this.attackIndicator;
+            g.clear();
+            g.lineStyle(2, g.defaultColor, 0.5);
+            g.fillStyle(g.defaultColor, 0.1);
+            g.strokeCircle(this.x, this.y, g.range);
         }
     }
 
@@ -408,6 +438,95 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             this.setTint(0x555555);
             this.body.setVelocity(0);
             this.scene.gameOver();
+        }
+    }
+
+    fireBasicAttack(pointer) {
+        const cooldown = 1000 / this.attackSpeed;
+        if (this.scene.time.now - this.lastAttackTime < cooldown) {
+            // Cooldown not ready
+            this.resetAiming();
+            return;
+        }
+
+        const worldPoint = pointer.positionToCamera(this.scene.cameras.main);
+        let target = null;
+        const monsters = this.scene.monsterManager.monsters.getChildren();
+        const crates = this.scene.mapManager.crates ? this.scene.mapManager.crates.getChildren() : [];
+
+        // 1. Check for Direct Click (Cursor on Object)
+        // Check Monsters
+        for (const monster of monsters) {
+            if (!monster.active) continue;
+            if (Phaser.Math.Distance.Between(worldPoint.x, worldPoint.y, monster.x, monster.y) < 40) {
+                if (Phaser.Math.Distance.Between(this.x, this.y, monster.x, monster.y) <= this.attackRange) {
+                    target = monster;
+                    break;
+                }
+            }
+        }
+
+        // Check Crates (if no monster clicked)
+        if (!target) {
+            for (const crate of crates) {
+                if (!crate.active) continue;
+                if (Phaser.Math.Distance.Between(worldPoint.x, worldPoint.y, crate.x, crate.y) < 30) {
+                    if (Phaser.Math.Distance.Between(this.x, this.y, crate.x, crate.y) <= this.attackRange) {
+                        target = crate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. If no direct target, Attack Ground -> Priority: Monster > Crate
+        if (!target) {
+            let closestDist = this.attackRange;
+            let closestEntity = null;
+
+            // Search Nearest Monster
+            for (const monster of monsters) {
+                if (!monster.active) continue;
+                const dist = Phaser.Math.Distance.Between(this.x, this.y, monster.x, monster.y);
+                if (dist <= this.attackRange && dist < closestDist) {
+                    closestDist = dist;
+                    closestEntity = monster;
+                }
+            }
+
+            // If no monster found, Search Nearest Crate
+            if (!closestEntity) {
+                closestDist = this.attackRange; // Reset distance for crate search
+                for (const crate of crates) {
+                    if (!crate.active) continue;
+                    const dist = Phaser.Math.Distance.Between(this.x, this.y, crate.x, crate.y);
+                    if (dist <= this.attackRange && dist < closestDist) {
+                        closestDist = dist;
+                        closestEntity = crate;
+                    }
+                }
+            }
+
+            target = closestEntity;
+        }
+
+        if (target) {
+            this.lastAttackTime = this.scene.time.now;
+
+            // Create Homing Projectile
+            const bullet = this.scene.bullets.create(this.x, this.y, 'bulletTexture');
+            bullet.setTint(0xff0000);
+            bullet.target = target;
+            bullet.isHoming = true;
+            bullet.speed = 400;
+
+            this.scene.time.delayedCall(3000, () => { if (bullet.active) bullet.destroy(); });
+
+            this.resetAiming();
+        } else {
+            // No target found -> Move Command
+            this.resetAiming();
+            this.handleMoveInput(worldPoint.x, worldPoint.y);
         }
     }
 }

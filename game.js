@@ -91,6 +91,9 @@ class MainScene extends Phaser.Scene {
         // Camera
         this.cameras.main.startFollow(this.player);
 
+        // Fog of War (after camera setup)
+        this.fogOfWar = new FogOfWar(this);
+
         // Colliders (Obstacles)
         this.physics.add.collider(this.player, this.mapManager.obstacles);
         this.physics.add.collider(this.monsterManager.monsters, this.mapManager.obstacles);
@@ -130,10 +133,19 @@ class MainScene extends Phaser.Scene {
         this.physics.add.overlap(this.bullets, this.mapManager.crates, (b, c) => {
             if (b.descriptor === 'bomb') {
                 this.player.createExplosion(b.x, b.y);
+                b.destroy();
             } else {
-                if (c.takeDamage) c.takeDamage(10);
+                // Check if this bullet is homing AND targeting this specific crate
+                if (b.isHoming && b.target === c) {
+                    if (c.takeDamage) c.takeDamage(10);
+                    b.destroy();
+                } else if (!b.isHoming) {
+                    // Non-homing bullets damage and destroy
+                    if (c.takeDamage) c.takeDamage(10);
+                    b.destroy();
+                }
+                // Else: homing bullet targeting something else, pass through
             }
-            b.destroy();
         });
 
         // Debug Path Graphics
@@ -149,6 +161,30 @@ class MainScene extends Phaser.Scene {
         this.monsterManager.update(time); // Path updates
         this.mapManager.updateChunks(this.player);
         this.uiManager.update();
+
+        // Update Fog of War
+        this.fogOfWar.update(this.player.x, this.player.y);
+
+        // Update Monster Visibility based on Fog
+        this.monsterManager.monsters.getChildren().forEach(monster => {
+            if (monster.active) {
+                const isVisible = this.fogOfWar.isVisible(monster.x, monster.y, this.player.x, this.player.y);
+                monster.setVisible(isVisible);
+                if (monster.hpBar) monster.hpBar.setVisible(isVisible);
+            }
+        });
+
+        // Update Bullets (Homing)
+        this.bullets.getChildren().forEach(b => {
+            if (b.active && b.isHoming) {
+                if (b.target && b.target.active) {
+                    this.physics.moveToObject(b, b.target, b.speed);
+                } else {
+                    // Target dead or lost
+                    b.destroy();
+                }
+            }
+        });
 
         // Background Scroll
         this.background.tilePositionX = this.cameras.main.scrollX;
@@ -238,7 +274,7 @@ const config = {
             debug: false
         }
     },
-    scene: [MainScene] // Use Class directly
+    scene: [MenuScene, MainScene] // MenuScene first, then MainScene
 };
 
 // Global Game Instance

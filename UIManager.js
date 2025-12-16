@@ -19,14 +19,14 @@ class UIManager {
     createUI() {
         // Health Bar
         this.healthBarBg = this.scene.add.rectangle(700, 30, 104, 24, 0x000000);
-        this.healthBarBg.setScrollFactor(0).setDepth(100);
+        this.healthBarBg.setScrollFactor(0).setDepth(200); // Above fog
 
         this.healthBar = this.scene.add.rectangle(700, 30, 100, 20, 0x00ff00);
-        this.healthBar.setScrollFactor(0).setDepth(100);
+        this.healthBar.setScrollFactor(0).setDepth(201); // Above fog
 
         this.healthText = this.scene.add.text(700, 30, '100/100', {
             fontSize: '14px', color: '#ffffff', fontStyle: 'bold'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(202); // Above fog
 
         // Skills
         const baseY = 530;
@@ -38,14 +38,14 @@ class UIManager {
 
     createSkillIcon(key, x, y) {
         const bg = this.scene.add.rectangle(x, y, 50, 50, 0x333333);
-        bg.setScrollFactor(0).setDepth(100).setStrokeStyle(2, 0xffffff);
+        bg.setScrollFactor(0).setDepth(200).setStrokeStyle(2, 0xffffff); // Above fog
 
         const text = this.scene.add.text(x, y, key, {
             fontSize: '24px', color: '#ffffff', fontStyle: 'bold'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(201); // Above fog
 
         const overlay = this.scene.add.rectangle(x, y, 50, 50, 0xffffff, 0.5);
-        overlay.setScrollFactor(0).setDepth(102);
+        overlay.setScrollFactor(0).setDepth(202); // Above fog
         overlay.setOrigin(0.5, 1);
         overlay.y = y + 25; // Align bottom
         overlay.scaleY = 0;

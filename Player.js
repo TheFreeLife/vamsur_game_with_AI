@@ -48,13 +48,22 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.rVisual.setDepth(10); // Under player
         this.rVisual.setVisible(false);
 
+        // Inventory
+        this.inventory = Array(6).fill(null);
+
         // Input
         this.keys = scene.input.keyboard.addKeys({
             Q: Phaser.Input.Keyboard.KeyCodes.Q,
             W: Phaser.Input.Keyboard.KeyCodes.W,
             E: Phaser.Input.Keyboard.KeyCodes.E,
             R: Phaser.Input.Keyboard.KeyCodes.R,
-            A: Phaser.Input.Keyboard.KeyCodes.A
+            A: Phaser.Input.Keyboard.KeyCodes.A,
+            ONE: Phaser.Input.Keyboard.KeyCodes.ONE,
+            TWO: Phaser.Input.Keyboard.KeyCodes.TWO,
+            THREE: Phaser.Input.Keyboard.KeyCodes.THREE,
+            FOUR: Phaser.Input.Keyboard.KeyCodes.FOUR,
+            FIVE: Phaser.Input.Keyboard.KeyCodes.FIVE,
+            SIX: Phaser.Input.Keyboard.KeyCodes.SIX,
         });
 
         // Setup Mouse Input (Scene level, but handled here)
@@ -101,6 +110,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
 
         // Input Polling for Skill Toggles
         this.handleSkillInput(time);
+        this.handleItemUseInput();
 
         // Updates
         this.drawIndicators();
@@ -446,6 +456,30 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
+    heal(amount) {
+        if (this.isDead) return;
+        this.currentHealth = Math.min(this.currentHealth + amount, this.maxHealth);
+        this.scene.uiManager.updateHealth();
+        
+        // Optional: Add some visual feedback for healing
+        const healText = this.scene.add.text(this.x, this.y - 30, `+${amount}`, { 
+            fontSize: '18px', 
+            color: '#00ff00',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+
+        this.scene.tweens.add({
+            targets: healText,
+            y: this.y - 60,
+            alpha: 0,
+            duration: 1500,
+            ease: 'Power1',
+            onComplete: () => healText.destroy()
+        });
+    }
+
     gainExperience(amount) {
         this.experience += amount;
 
@@ -495,6 +529,45 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             this.scene.uiManager.updateExperience();
         }
     }
+
+    handleItemUseInput() {
+        if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.useItem(0);
+        if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.useItem(1);
+        if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.useItem(2);
+        if (Phaser.Input.Keyboard.JustDown(this.keys.FOUR)) this.useItem(3);
+        if (Phaser.Input.Keyboard.JustDown(this.keys.FIVE)) this.useItem(4);
+        if (Phaser.Input.Keyboard.JustDown(this.keys.SIX)) this.useItem(5);
+    }
+
+    addItem(item) {
+        const emptySlotIndex = this.inventory.findIndex(slot => slot === null);
+        if (emptySlotIndex !== -1) {
+            this.inventory[emptySlotIndex] = {
+                type: 'heal', // We can expand this later
+                healingAmount: item.healingAmount,
+                textureKey: item.texture.key
+            };
+            // The UI update will be handled by the main UIManager update loop
+            return true;
+        }
+        return false; // Inventory full
+    }
+
+    useItem(slotIndex) {
+        const item = this.inventory[slotIndex];
+        if (!item) return;
+
+        switch(item.type) {
+            case 'heal':
+                this.heal(item.healingAmount);
+                break;
+            // other item types can be added here
+        }
+
+        this.inventory[slotIndex] = null;
+        // The UI update will be handled by the main UIManager update loop
+    }
+
 
     fireBasicAttack(pointer) {
         const cooldown = 1000 / this.attackSpeed;

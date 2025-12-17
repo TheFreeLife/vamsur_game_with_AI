@@ -11,10 +11,21 @@ class MapManager {
             immovable: true,
             allowGravity: false
         });
+        this.healingItems = scene.physics.add.group({
+            allowGravity: false,
+            immovable: true
+        });
 
         this.chunkSize = 640;
         this.tileSize = 32;
         this.gridRadius = 30; // Grid radius for A*
+    }
+
+    spawnHealingItem(x, y) {
+        const healingItem = new HealItem(this.scene, x, y);
+        this.healingItems.add(healingItem);
+        // We'll let the HealItem class handle its own effects
+        return healingItem;
     }
 
     updateChunks(player) {
@@ -68,6 +79,25 @@ class MapManager {
                     this.crateMap.set(key, crate);
                     crate.gridKey = key;
                 }
+            }
+        }
+        
+        // Random Healing Items in field
+        if (Phaser.Math.Between(0, 100) >= 0) { // 100% chance per chunk to have a healing item (for testing)
+            const x = cx * this.chunkSize + Phaser.Math.Between(0, this.chunkSize);
+            const y = cy * this.chunkSize + Phaser.Math.Between(0, this.chunkSize);
+
+            const gx = Math.floor(x / this.tileSize);
+            const gy = Math.floor(y / this.tileSize);
+            const finalX = gx * this.tileSize + this.tileSize / 2;
+            const finalY = gy * this.tileSize + this.tileSize / 2;
+
+            const key = `${gx},${gy}`;
+            if (!this.wallGrid.has(key)) {
+                const healingItem = this.spawnHealingItem(finalX, finalY);
+                healingItem.gridKey = key;
+                this.wallGrid.set(key, 3); // 3 = Healing Item
+                chunkObjects.push(healingItem);
             }
         }
 
@@ -147,6 +177,12 @@ class MapManager {
         if (crate.gridKey) {
             this.wallGrid.delete(crate.gridKey);
             this.crateMap.delete(crate.gridKey);
+        }
+    }
+
+    removeItemFromGrid(item) {
+        if (item.gridKey) {
+            this.wallGrid.delete(item.gridKey);
         }
     }
 

@@ -73,6 +73,15 @@ class MainScene extends Phaser.Scene {
         graphics.lineStyle(2, 0x5D4037);
         graphics.strokeRect(0, 0, 32, 32);
         graphics.generateTexture('crateTexture', 32, 32);
+
+        // Healing Item (Green Cross)
+        graphics.clear();
+        graphics.fillStyle(0x00ff00, 1.0);
+        // Vertical bar
+        graphics.fillRect(18, 6, 12, 36); // Center (18), width(12), height(36) in 48x48
+        // Horizontal bar
+        graphics.fillRect(6, 18, 36, 12); // Center (18), width(36), height(12) in 48x48
+        graphics.generateTexture('healItem', 48, 48);
     }
 
     create() {
@@ -117,6 +126,11 @@ class MainScene extends Phaser.Scene {
         // Collision: Player vs Monster
         this.physics.add.collider(this.player, this.monsterManager.monsters, (p, m) => {
             this.handlePlayerMonsterCollision(p, m);
+        });
+
+        // Collision: Player vs Healing Item
+        this.physics.add.overlap(this.player, this.mapManager.healingItems, (player, item) => {
+            this.playerHitHealingItem(player, item);
         });
 
         // Collision: Bullet vs Monster
@@ -242,6 +256,13 @@ class MainScene extends Phaser.Scene {
                 }
             }
         });
+    }
+
+    playerHitHealingItem(player, item) {
+        if (player.addItem(item)) {
+            this.mapManager.removeItemFromGrid(item);
+            item.destroy();
+        }
     }
 
     drawDebugPath() {

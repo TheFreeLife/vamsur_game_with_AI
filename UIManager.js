@@ -13,6 +13,10 @@ class UIManager {
 
         this.skillIcons = {};
         this.overlays = {};
+
+        // Inventory
+        this.inventorySlots = [];
+        this.inventoryIcons = [];
     }
 
     setPlayer(player) {
@@ -49,6 +53,9 @@ class UIManager {
         this.createSkillIcon('W', 110, baseY);
         this.createSkillIcon('E', 170, baseY);
         this.createSkillIcon('R', 230, baseY);
+
+        // Inventory UI
+        this.createInventoryUI();
     }
 
     createSkillIcon(key, x, y) {
@@ -69,10 +76,67 @@ class UIManager {
         this.overlays[key] = overlay;
     }
 
+    createInventoryUI() {
+        const slotSize = 48;
+        const spacing = 4;
+        const cols = 3;
+        const rows = 2;
+        const invWidth = (slotSize * cols) + (spacing * (cols - 1));
+        const invHeight = (slotSize * rows) + (spacing * (rows - 1));
+        const startX = 800 - invWidth - 20;
+        const startY = 600 - invHeight - 20;
+
+        const container = this.scene.add.container(startX, startY);
+        container.setScrollFactor(0).setDepth(200);
+
+        for (let i = 0; i < rows * cols; i++) {
+            const x = (i % cols) * (slotSize + spacing);
+            const y = Math.floor(i / cols) * (slotSize + spacing);
+
+            const slotBg = this.scene.add.rectangle(x, y, slotSize, slotSize, 0x000000, 0.5);
+            slotBg.setOrigin(0);
+            slotBg.setStrokeStyle(2, 0x888888);
+            container.add(slotBg);
+
+            const keyText = this.scene.add.text(x + 5, y + 5, `${i + 1}`, {
+                fontSize: '12px',
+                color: '#cccccc'
+            });
+            keyText.setOrigin(0);
+            container.add(keyText);
+            
+            this.inventorySlots.push(slotBg);
+
+            // Placeholder for icon
+            const icon = this.scene.add.sprite(x + slotSize / 2, y + slotSize / 2, 'healItem');
+            icon.setVisible(false);
+            icon.setScale(0.8);
+            container.add(icon);
+            this.inventoryIcons.push(icon);
+        }
+    }
+
+    updateInventory() {
+        if (!this.player) return;
+
+        for (let i = 0; i < this.inventoryIcons.length; i++) {
+            const item = this.player.inventory[i];
+            const icon = this.inventoryIcons[i];
+
+            if (item) {
+                icon.setTexture(item.textureKey); // Assuming item has a textureKey property
+                icon.setVisible(true);
+            } else {
+                icon.setVisible(false);
+            }
+        }
+    }
+
     update() {
         if (!this.player) return;
         this.updateHealth();
         this.updateCooldowns();
+        this.updateInventory();
     }
 
     updateHealth() {
